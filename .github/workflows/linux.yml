@@ -26,6 +26,8 @@ jobs:
     - name: build
       run: |
         cd Build
+        export CC=gcc-8
+        export CXX=g++-8
         cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release ..
         make
 #    - name: test
