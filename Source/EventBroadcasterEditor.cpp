@@ -51,7 +51,6 @@ EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode, boo
     formatBox->addListener(this);
     addAndMakeVisible(formatBox);
 
-    setEnabledState(false);
 }
 
 
