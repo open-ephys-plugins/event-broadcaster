@@ -38,7 +38,7 @@ extern "C" EXPORT void getLibInfo(Plugin::LibraryInfo* info)
 {
 	info->apiVersion = PLUGIN_API_VER;
 	info->name = "Event Broadcaster";
-	info->libVersion = 1;
+	info->libVersion = "0.1.0";
 	info->numPlugins = NUM_PLUGINS;
 }
 
@@ -47,9 +47,9 @@ extern "C" EXPORT int getPluginInfo(int index, Plugin::PluginInfo* info)
 	switch (index)
 	{
 	case 0:
-		info->type = Plugin::PLUGIN_TYPE_PROCESSOR;
+		info->type = Plugin::PROCESSOR;
 		info->processor.name = "Event Broadcaster";
-		info->processor.type = Plugin::SinkProcessor;
+		info->processor.type = Plugin::Processor::SINK;
 		info->processor.creator = &(Plugin::createProcessor<EventBroadcaster>);
 		break;
 	default:

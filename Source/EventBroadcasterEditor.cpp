@@ -12,8 +12,8 @@
 #include "EventBroadcaster.h"
 
 
-EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode, bool useDefaultParameterEditors)
-    : GenericEditor(parentNode, useDefaultParameterEditors)
+EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode)
+    : GenericEditor(parentNode)
 
 {
     desiredWidth = 180;
@@ -54,7 +54,7 @@ EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode, boo
 }
 
 
-void EventBroadcasterEditor::buttonEvent(Button* button)
+void EventBroadcasterEditor::buttonClicked(Button* button)
 {
     if (button == restartConnection)
     {
@@ -95,7 +95,7 @@ void EventBroadcasterEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
     if (comboBoxThatHasChanged == formatBox)
     {
         auto p = static_cast<EventBroadcaster*>(getProcessor());
-        p->setOutputFormat(comboBoxThatHasChanged->getSelectedId());
+        p->setOutputFormat((EventBroadcaster::Format) comboBoxThatHasChanged->getSelectedId());
     }
 }
 
@@ -106,7 +106,7 @@ void EventBroadcasterEditor::setDisplayedPort(int port)
 }
 
 
-void EventBroadcasterEditor::setDisplayedFormat(int format)
+void EventBroadcasterEditor::setDisplayedFormat(EventBroadcaster::Format format)
 {
-    formatBox->setSelectedId(format, dontSendNotification);
+    formatBox->setSelectedId((int) format, dontSendNotification);
 }

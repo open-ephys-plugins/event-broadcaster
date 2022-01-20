@@ -26,26 +26,40 @@ class EventBroadcaster : public GenericProcessor
                        , private AsyncUpdater
 {
 public:
-    // ids for format combobox
-    enum Format { RAW_BINARY = 1, HEADER_ONLY, HEADER_AND_JSON };
+    /** ids for format combobox */
+    enum Format { RAW_BINARY = 1, HEADER_ONLY = 2, HEADER_AND_JSON = 3};
 
+    /** Constructor */
     EventBroadcaster();
 
+    /** Destructor */
+    ~EventBroadcaster() { }
+
+    /** Create custom editor*/
     AudioProcessorEditor* createEditor() override;
 
+    /** Returns the current listening port number */
     int getListeningPort() const;
-    // returns 0 on success, else the errno value for the error that occurred.
+    
+    /**Returns 0 on success, else the errno value for the error that occurred. */
     int setListeningPort(int port, bool forceRestart = false, bool searchForPort = false, bool synchronous = true);
 
-    int getOutputFormat() const;
-    void setOutputFormat(int format);
+    /** Returns the output format (RAW_BINARY, HEADER_ONLY, HEADER_AND_JSON) */
+    Format getOutputFormat() const;
 
-    void process(AudioSampleBuffer& continuousBuffer) override;
+    /** Sets the output format*/
+    void setOutputFormat(Format format);
+
+    /** Streams events via ZMQ */
+    void process(AudioBuffer<float>& continuousBuffer) override;
     void handleEvent(const EventChannel* channelInfo, const MidiMessage& event, int samplePosition = 0) override;
     void handleSpike(const SpikeChannel* channelInfo, const MidiMessage& event, int samplePosition = 0) override;
 
+    /** Saves parameters*/
     void saveCustomParametersToXml(XmlElement* parentElement) override;
-    void loadCustomParametersFromXml() override;
+
+    /** Loads parameters*/
+    void loadCustomParametersFromXml(XmlElement* parameters) override;
 
 private:
     struct MsgPart
@@ -85,13 +99,13 @@ private:
         SharedResourcePointer<ZMQContext> context;
     };
 
-    void sendEvent(const InfoObjectCommon* channel, const MidiMessage& msg) const;
+    void sendEvent(const ChannelInfoObject* channel, const MidiMessage& msg) const;
 
     int sendMessage(const Array<MsgPart>& parts) const;
 
     // add metadata from an event to a DynamicObject
-    static void populateMetaData(const MetaDataEventObject* channel,
-        const EventBasePtr event, DynamicObject::Ptr dest);
+    static void populateMetadata(const MetadataEventObject* channel,
+                                 const EventBasePtr event, DynamicObject::Ptr dest);
 
     void handleAsyncUpdate() override; // to change port asynchronously
 
@@ -108,7 +122,7 @@ private:
     ScopedPointer<ZMQSocket> zmqSocket;
     int listeningPort;
 
-    int outputFormat;
+    Format outputFormat;
 
     // ---- utilities for formatting binary data and metadata ----
 

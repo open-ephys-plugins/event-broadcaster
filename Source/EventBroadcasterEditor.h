@@ -13,10 +13,11 @@
 
 #include <EditorHeaders.h>
 
+#include "EventBroadcaster.h"
 
 /**
 
- User interface for the "EventBroadcaster" source node.
+ User interface for the "EventBroadcaster" sink.
 
  @see EventBroadcaster
 
@@ -26,16 +27,30 @@ class EventBroadcasterEditor
     : public GenericEditor
     , public Label::Listener
     , public ComboBox::Listener
+    , public Button::Listener
 {
 public:
-    EventBroadcasterEditor(GenericProcessor* parentNode, bool useDefaultParameterEditors);
 
-    void buttonEvent(Button* button) override;
-    void labelTextChanged(juce::Label* label) override;
+    /** Constructor*/
+    EventBroadcasterEditor(GenericProcessor* parentNode);
+
+    /** Destructor */
+    ~EventBroadcasterEditor() { }
+
+    /** Respond to button clicks*/
+    void buttonClicked(Button* button) override;
+
+    /** Respond to label edits */
+    void labelTextChanged(Label* label) override;
+
+    /** Respond to ComboBox changes*/
     void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
 
+    /** Sets the listening port*/
     void setDisplayedPort(int port);
-    void setDisplayedFormat(int id);
+
+    /** Sets the output format */
+    void setDisplayedFormat(EventBroadcaster::Format format);
 
 private:
     ScopedPointer<UtilityButton> restartConnection;

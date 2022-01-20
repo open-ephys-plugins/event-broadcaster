@@ -120,10 +120,8 @@ String EventBroadcaster::getEndpoint(int port)
 EventBroadcaster::EventBroadcaster()
     : GenericProcessor  ("Event Broadcaster")
     , listeningPort     (0)
-    , outputFormat      (RAW_BINARY)
+    , outputFormat      (HEADER_AND_JSON)
 {
-    setProcessorType (PROCESSOR_TYPE_SINK);
-
     // set port to 5557; search for an available one if necessary; and do it asynchronously.
     setListeningPort(5557, false, true, false);
 }
@@ -131,8 +129,8 @@ EventBroadcaster::EventBroadcaster()
 
 AudioProcessorEditor* EventBroadcaster::createEditor()
 {
-    editor = new EventBroadcasterEditor(this, true);
-    return editor;
+    editor = std::make_unique<EventBroadcasterEditor>(this);
+    return editor.get();
 }
 
 
@@ -227,13 +225,13 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
     return status;
 }
 
-int EventBroadcaster::getOutputFormat() const
+EventBroadcaster::Format EventBroadcaster::getOutputFormat() const
 {
     return outputFormat;
 }
 
 
-void EventBroadcaster::setOutputFormat(int format)
+void EventBroadcaster::setOutputFormat(Format format)
 {
     outputFormat = format;
 }
@@ -244,7 +242,7 @@ void EventBroadcaster::process(AudioSampleBuffer& continuousBuffer)
     checkForEvents(true);
 }
 
-void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMessage& msg) const
+void EventBroadcaster::sendEvent(const ChannelInfoObject* channel, const MidiMessage& msg) const
 {
 #ifdef ZEROMQ
     // TODO Create a procotol that has outline for every type of event
@@ -252,7 +250,7 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
     Array<MsgPart> message;
 
     // common info that isn't type-specific
-    EventType baseType = Event::getBaseType(msg);
+    Event::Type baseType = Event::getBaseType(msg);
     const String& identifier = channel->getIdentifier();
     float sampleRate = channel->getSampleRate();
     int64 timestamp = Event::getTimestamp(msg);
@@ -274,18 +272,18 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
         String header;
         DynamicObject::Ptr jsonObj = new DynamicObject();
         EventBasePtr baseEvent;
-        const MetaDataEventObject* metaDataChannel;
+        const MetadataEventObject* metaDataChannel;
 
         // deserialize event and get type-specific information
         switch (baseType)
         {
-        case SPIKE_EVENT:
+        case Event::SPIKE_EVENT:
         {
             auto spikeChannel = static_cast<const SpikeChannel*>(channel);
-            metaDataChannel = static_cast<const MetaDataEventObject*>(spikeChannel);
+            metaDataChannel = static_cast<const MetadataEventObject*>(spikeChannel);
 
-            baseEvent = SpikeEvent::deserializeFromMessage(msg, spikeChannel).release();
-            auto spike = static_cast<SpikeEvent*>(baseEvent.get());
+            baseEvent = Spike::deserialize(msg, spikeChannel).release();
+            auto spike = static_cast<Spike*>(baseEvent.get());
 
             // create header
             uint16 sortedID = spike->getSortedID();
@@ -311,15 +309,13 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
             break;  // case SPIKE_EVENT
         }
 
-        case PROCESSOR_EVENT:
+        case Event::PROCESSOR_EVENT:
         {
             auto eventChannel = static_cast<const EventChannel*>(channel);
-            metaDataChannel = static_cast<const MetaDataEventObject*>(eventChannel);
+            metaDataChannel = static_cast<const MetadataEventObject*>(eventChannel);
 
-            baseEvent = Event::deserializeFromMessage(msg, eventChannel).release();
+            baseEvent = Event::deserialize(msg, eventChannel).release();
             auto event = static_cast<Event*>(baseEvent.get());
-
-            uint16 channel = event->getChannel();
 
             // for json
             var type;
@@ -328,9 +324,11 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
             auto eventType = event->getEventType();
             switch (eventType)
             {
-            case EventChannel::EventChannelTypes::TTL:
+            case EventChannel::Type::TTL:
             {
                 bool state = static_cast<TTLEvent*>(event)->getState();
+
+                uint8 channel = static_cast<TTLEvent*>(event)->getBit();
 
                 header = "ttl/channel:" + String(channel) + "/state:" + (state ? "1" : "0") +
                     "/id:" + identifier + "/ts:" + String(timestamp);
@@ -340,11 +338,11 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
                 break;
             }
 
-            case EventChannel::EventChannelTypes::TEXT:
+            case EventChannel::Type::TEXT:
             {
                 const String& text = static_cast<TextEvent*>(event)->getText();
 
-                header = "text/channel:" + String(channel) + "/id:" + identifier +
+                header = "text/id:" + identifier +
                     "/text:" + text + "/ts:" + String(timestamp);
 
                 type = "text";
@@ -352,9 +350,9 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
                 break;
             }
 
-            default:
+            /*default:
             {
-                if (eventType < EventChannel::EventChannelTypes::BINARY_BASE_VALUE ||
+                if (eventType < EventChannel::Type::BINARY ||
                     eventType >= EventChannel::EventChannelTypes::INVALID)
                 {
                     jassertfalse;
@@ -363,7 +361,7 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
 
                 // must have binary event
 
-                BaseType dataType = eventChannel->getEquivalentMetaDataType();
+                BaseType dataType = eventChannel->getEquivalentMetadataType();
                 auto dataReader = getDataReader(dataType);
                 const void* rawData = static_cast<BinaryEvent*>(event)->getBinaryDataPointer();
                 unsigned int length = eventChannel->getLength();
@@ -390,12 +388,12 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
                     "/data:" + dataString + "/ts:" + String(timestamp);
 
                 break;
-            }
+            }*/
             } // end switch(eventType)
 
             if (currFormat == HEADER_AND_JSON)
             {
-                jsonObj->setProperty("channel", channel);
+                //jsonObj->setProperty("channel", channel);
                 jsonObj->setProperty("type", type);
                 jsonObj->setProperty("data", data);
             }
@@ -414,18 +412,14 @@ void EventBroadcaster::sendEvent(const InfoObjectCommon* channel, const MidiMess
         if (currFormat == HEADER_AND_JSON)
         {
             // Add common info to JSON
-            // Still sending these guys as float/doubles for now. Might change in future.
-            DynamicObject::Ptr timing = new DynamicObject();
-            timing->setProperty("sampleRate", sampleRate);
-            timing->setProperty("timestamp", timestamp);
-            jsonObj->setProperty("timing", timing.get());
-
+            jsonObj->setProperty("timestamp", timestamp);
+            jsonObj->setProperty("sample_rate", sampleRate);
             jsonObj->setProperty("identifier", identifier);
             jsonObj->setProperty("name", channel->getName());
 
             // Add metadata
             DynamicObject::Ptr metaDataObj = new DynamicObject();
-            populateMetaData(metaDataChannel, baseEvent, metaDataObj);
+            populateMetadata(metaDataChannel, baseEvent, metaDataObj);
             jsonObj->setProperty("metaData", metaDataObj.get());
 
             String jsonString = JSON::toString(var(jsonObj));
@@ -455,7 +449,7 @@ int EventBroadcaster::sendMessage(const Array<MsgPart>& parts) const
     return 0;
 }
 
-void EventBroadcaster::populateMetaData(const MetaDataEventObject* channel,
+void EventBroadcaster::populateMetadata(const MetadataEventObject* channel,
     const EventBasePtr event, DynamicObject::Ptr dest)
 {
     //Iterate through all event data and add to metadata object
@@ -463,11 +457,11 @@ void EventBroadcaster::populateMetaData(const MetaDataEventObject* channel,
     for (int i = 0; i < numMetaData; i++)
     {
         //Get metadata name
-        const MetaDataDescriptor* metaDescPtr = channel->getEventMetaDataDescriptor(i);
+        const MetadataDescriptor* metaDescPtr = channel->getEventMetadataDescriptor(i);
         const String& metaDataName = metaDescPtr->getName();
 
         //Get metadata value
-        const MetaDataValue* valuePtr = event->getMetaDataValue(i);
+        const MetadataValue* valuePtr = event->getMetadataValue(i);
         const void* rawPtr = valuePtr->getRawValuePointer();
         unsigned int length = valuePtr->getDataLength();
 
@@ -477,12 +471,12 @@ void EventBroadcaster::populateMetaData(const MetaDataEventObject* channel,
 }
 
 
-void EventBroadcaster::handleEvent(const EventChannel* channelInfo, const MidiMessage& event, int samplePosition)
+void EventBroadcaster::handleEvent(const EventChannel* channelInfo, const EventPacket& event, int samplePosition)
 {
     sendEvent(channelInfo, event);
 }
 
-void EventBroadcaster::handleSpike(const SpikeChannel* channelInfo, const MidiMessage& event, int samplePosition)
+void EventBroadcaster::handleSpike(const SpikeChannel* channelInfo, const EventPacket& event, int samplePosition)
 {
     sendEvent(channelInfo, event);
 }
@@ -491,30 +485,29 @@ void EventBroadcaster::saveCustomParametersToXml(XmlElement* parentElement)
 {
     XmlElement* mainNode = parentElement->createNewChildElement("EVENTBROADCASTER");
     mainNode->setAttribute("port", listeningPort);
-    mainNode->setAttribute("format", outputFormat);
+    mainNode->setAttribute("format", (int) outputFormat);
 }
 
 
-void EventBroadcaster::loadCustomParametersFromXml()
+void EventBroadcaster::loadCustomParametersFromXml(XmlElement* parametersXml)
 {
-    if (parametersAsXml)
-    {
-        forEachXmlChildElement(*parametersAsXml, mainNode)
-        {
-            if (mainNode->hasTagName("EVENTBROADCASTER"))
-            {
-                // overrides an existing async call to setListeningPort, if any
-                setListeningPort(mainNode->getIntAttribute("port", listeningPort), false, false, false);
 
-                outputFormat = mainNode->getIntAttribute("format", outputFormat);
-                auto ed = static_cast<EventBroadcasterEditor*>(getEditor());
-                if (ed)
-                {
-                    ed->setDisplayedFormat(outputFormat);
-                }
+    forEachXmlChildElement(*parametersXml, mainNode)
+    {
+        if (mainNode->hasTagName("EVENTBROADCASTER"))
+        {
+            // overrides an existing async call to setListeningPort, if any
+            setListeningPort(mainNode->getIntAttribute("port", listeningPort), false, false, false);
+
+            outputFormat = (Format) mainNode->getIntAttribute("format", outputFormat);
+            auto ed = static_cast<EventBroadcasterEditor*>(getEditor());
+            if (ed)
+            {
+                ed->setDisplayedFormat(outputFormat);
             }
         }
     }
+ 
 }
 
 template <typename T>
