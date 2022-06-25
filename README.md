@@ -81,4 +81,4 @@ Running the `ALL_BUILD` scheme will compile the plugin; running the `INSTALL` sc
 
 ## Attribution
 
-This plugin was originally developed by Shay Ohayon in Doris Tsao's lab at Caltech. It is now being maintained by the Allen Institute.
+This plugin was originally developed by Christopher Stawarz in Jim DiCarlo's lab at MIT. It is now being maintained by the Allen Institute.
