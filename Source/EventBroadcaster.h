@@ -1,11 +1,24 @@
 /*
-  ==============================================================================
+    ------------------------------------------------------------------
 
-    EventBroadcaster.h
-    Created: 22 May 2015 3:31:50pm
-    Author:  Christopher Stawarz
+    This file is part of the Open Ephys GUI
+    Copyright (C) 2015 Christopher Stawarz and Open Ephys
 
-  ==============================================================================
+    ------------------------------------------------------------------
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 */
 
 #ifndef EVENTBROADCASTER_H_INCLUDED
@@ -27,7 +40,7 @@ class EventBroadcaster : public GenericProcessor
 {
 public:
     /** ids for format combobox */
-    enum Format { RAW_BINARY = 1, HEADER_ONLY = 2, HEADER_AND_JSON = 3};
+    enum Format { RAW_BINARY = 1, JSON_STRING = 2};
 
     /** Constructor */
     EventBroadcaster();
@@ -52,8 +65,12 @@ public:
 
     /** Streams events via ZMQ */
     void process(AudioBuffer<float>& continuousBuffer) override;
-    void handleEvent(const EventChannel* channelInfo, const MidiMessage& event, int samplePosition = 0) override;
-    void handleSpike(const SpikeChannel* channelInfo, const MidiMessage& event, int samplePosition = 0) override;
+
+    /** Called whenever a new event is received */
+    void handleTTLEvent(TTLEventPtr event) override;
+
+    /** Called whenever a new spike is received */
+    void handleSpike(SpikePtr spike) override;
 
     /** Saves parameters*/
     void saveCustomParametersToXml(XmlElement* parentElement) override;
@@ -99,8 +116,13 @@ private:
         SharedResourcePointer<ZMQContext> context;
     };
 
-    void sendEvent(const ChannelInfoObject* channel, const MidiMessage& msg) const;
+    /** Sends an event over ZMQ */
+    void sendEvent(TTLEventPtr event) const;
 
+    /** Sends a spike over ZMQ */
+    void sendSpike(SpikePtr spike) const;
+
+    /** Sends a multi-part ZMQ message */
     int sendMessage(const Array<MsgPart>& parts) const;
 
     // add metadata from an event to a DynamicObject

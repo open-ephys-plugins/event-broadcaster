@@ -1,15 +1,30 @@
 /*
-  ==============================================================================
+    ------------------------------------------------------------------
 
-    EventBroadcaster.cpp
-    Created: 22 May 2015 3:31:50pm
-    Author:  Christopher Stawarz
+    This file is part of the Open Ephys GUI
+    Copyright (C) 2015 Christopher Stawarz and Open Ephys
 
-  ==============================================================================
+    ------------------------------------------------------------------
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 */
 
 #include "EventBroadcaster.h"
 #include "EventBroadcasterEditor.h"
+
+#define SPIKE_BASE_SIZE 26
 
 EventBroadcaster::ZMQContext::ZMQContext()
 #ifdef ZEROMQ
@@ -120,7 +135,7 @@ String EventBroadcaster::getEndpoint(int port)
 EventBroadcaster::EventBroadcaster()
     : GenericProcessor  ("Event Broadcaster")
     , listeningPort     (0)
-    , outputFormat      (HEADER_AND_JSON)
+    , outputFormat      (JSON_STRING)
 {
     // set port to 5557; search for an available one if necessary; and do it asynchronously.
     setListeningPort(5557, false, true, false);
@@ -242,193 +257,104 @@ void EventBroadcaster::process(AudioSampleBuffer& continuousBuffer)
     checkForEvents(true);
 }
 
-void EventBroadcaster::sendEvent(const ChannelInfoObject* channel, const MidiMessage& msg) const
+void EventBroadcaster::sendEvent(TTLEventPtr event) const
 {
 #ifdef ZEROMQ
-    // TODO Create a procotol that has outline for every type of event
-    int currFormat = outputFormat;
+
     Array<MsgPart> message;
 
-    // common info that isn't type-specific
-    Event::Type baseType = Event::getBaseType(msg);
-    const String& identifier = channel->getIdentifier();
-    float sampleRate = channel->getSampleRate();
-    int64 timestamp = Event::getTimestamp(msg);
+    uint16 baseType16 = 0; // 0 for TTL events, 1 for spikes
+    message.add({ "type", { &baseType16, sizeof(baseType16) } });
 
-    if (currFormat == RAW_BINARY)
+    auto channel = event->getChannelInfo();
+
+    if (outputFormat == RAW_BINARY)
     {
-        uint16 baseType16 = static_cast<uint16>(baseType); // for backward compatability
-        double timestampSeconds = double(timestamp) / sampleRate;
-        const void* rawData = msg.getRawData();
-        size_t rawDataSize = msg.getRawDataSize();
+        const void* rawData = event->getRawDataPointer();
+        size_t rawDataSize = channel->getDataSize() + channel->getTotalEventMetadataSize();
 
-        message.add({ "base type", { &baseType16, sizeof(baseType16) } });
-        message.add({ "timestamp", { &timestampSeconds, sizeof(timestampSeconds) } });
-        message.add({ "raw data", { rawData, rawDataSize } });
+        message.add({ "data", { rawData, rawDataSize } });
     }
-    else // deserialize the data, get metadata, etc.
+    else // deserialize the data and create a JSON string
     {
-        // info to be assigned depending on the event type
-        String header;
         DynamicObject::Ptr jsonObj = new DynamicObject();
-        EventBasePtr baseEvent;
-        const MetadataEventObject* metaDataChannel;
 
-        // deserialize event and get type-specific information
-        switch (baseType)
-        {
-        case Event::SPIKE_EVENT:
-        {
-            auto spikeChannel = static_cast<const SpikeChannel*>(channel);
-            metaDataChannel = static_cast<const MetadataEventObject*>(spikeChannel);
+        // Add common info to JSON
+        jsonObj->setProperty("event_type", "ttl");
+        jsonObj->setProperty("stream", channel->getStreamName());
+        jsonObj->setProperty("source_node", channel->getNodeId());
+        jsonObj->setProperty("sample_rate", channel->getSampleRate());
+        jsonObj->setProperty("channel_name", channel->getName());
+        jsonObj->setProperty("sample_number", event->getSampleNumber());
+        jsonObj->setProperty("line", event->getLine());
+        jsonObj->setProperty("state", event->getState());
 
-            baseEvent = Spike::deserialize(msg, spikeChannel).release();
-            auto spike = static_cast<Spike*>(baseEvent.get());
+        String jsonString = JSON::toString(var(jsonObj));
+        message.add({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
 
-            // create header
-            uint16 sortedID = spike->getSortedID();
-            header = "spike/sortedid:" + String(sortedID) + "/id:" + identifier + "/ts:" + String(timestamp);
-
-            if (currFormat == HEADER_AND_JSON)
-            {
-                // add info to JSON
-                jsonObj->setProperty("type", "spike");
-                jsonObj->setProperty("sortedID", sortedID);
-
-                int spikeChannels = spikeChannel->getNumChannels();
-                jsonObj->setProperty("numChannels", spikeChannels);
-
-                Array<var> thresholds;
-                for (int i = 0; i < spikeChannels; ++i)
-                {
-                    thresholds.add(spike->getThreshold(i));
-                }
-                jsonObj->setProperty("threshold", thresholds);
-            }
-
-            break;  // case SPIKE_EVENT
-        }
-
-        case Event::PROCESSOR_EVENT:
-        {
-            auto eventChannel = static_cast<const EventChannel*>(channel);
-            metaDataChannel = static_cast<const MetadataEventObject*>(eventChannel);
-
-            baseEvent = Event::deserialize(msg, eventChannel).release();
-            auto event = static_cast<Event*>(baseEvent.get());
-
-            // for json
-            var type;
-            var data;
-
-            auto eventType = event->getEventType();
-            switch (eventType)
-            {
-            case EventChannel::Type::TTL:
-            {
-                bool state = static_cast<TTLEvent*>(event)->getState();
-
-                uint8 channel = static_cast<TTLEvent*>(event)->getBit();
-
-                header = "ttl/channel:" + String(channel) + "/state:" + (state ? "1" : "0") +
-                    "/id:" + identifier + "/ts:" + String(timestamp);
-
-                type = "ttl";
-                data = state;
-                break;
-            }
-
-            case EventChannel::Type::TEXT:
-            {
-                const String& text = static_cast<TextEvent*>(event)->getText();
-
-                header = "text/id:" + identifier +
-                    "/text:" + text + "/ts:" + String(timestamp);
-
-                type = "text";
-                data = text;
-                break;
-            }
-
-            /*default:
-            {
-                if (eventType < EventChannel::Type::BINARY ||
-                    eventType >= EventChannel::EventChannelTypes::INVALID)
-                {
-                    jassertfalse;
-                    return;
-                }
-
-                // must have binary event
-
-                BaseType dataType = eventChannel->getEquivalentMetadataType();
-                auto dataReader = getDataReader(dataType);
-                const void* rawData = static_cast<BinaryEvent*>(event)->getBinaryDataPointer();
-                unsigned int length = eventChannel->getLength();
-
-                type = "binary";
-                data = dataReader(rawData, length);
-
-                String dataString;
-                if (data.isArray()) // make comma-separated list of values
-                {
-                    int length = data.size();
-                    for (int i = 0; i < length; ++i)
-                    {
-                        if (i > 0) { dataString += ","; }
-                        dataString += data[i].toString();
-                    }
-                }
-                else
-                {
-                    dataString = data.toString();
-                }
-
-                header = "binary/channel:" + String(channel) + "/id:" + identifier +
-                    "/data:" + dataString + "/ts:" + String(timestamp);
-
-                break;
-            }*/
-            } // end switch(eventType)
-
-            if (currFormat == HEADER_AND_JSON)
-            {
-                //jsonObj->setProperty("channel", channel);
-                jsonObj->setProperty("type", type);
-                jsonObj->setProperty("data", data);
-            }
-
-            break; // case PROCESSOR_EVENT
-        }
-
-        default:
-            jassertfalse; // should never happen
-            return;
-
-        } // end switch(baseType)
-        message.add({ "header", { header.toRawUTF8(), header.getNumBytesAsUTF8() } });
-
-        String jsonString; // must be outside the if-statement so it remains in scope when we send the message
-        if (currFormat == HEADER_AND_JSON)
-        {
-            // Add common info to JSON
-            jsonObj->setProperty("timestamp", timestamp);
-            jsonObj->setProperty("sample_rate", sampleRate);
-            jsonObj->setProperty("identifier", identifier);
-            jsonObj->setProperty("name", channel->getName());
-
-            // Add metadata
-            DynamicObject::Ptr metaDataObj = new DynamicObject();
-            populateMetadata(metaDataChannel, baseEvent, metaDataObj);
-            jsonObj->setProperty("metaData", metaDataObj.get());
-
-            String jsonString = JSON::toString(var(jsonObj));
-            message.add({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
-        }
     }
 
     sendMessage(message);
+
 #endif
+
+}
+
+void EventBroadcaster::sendSpike(SpikePtr spike) const
+{
+#ifdef ZEROMQ
+
+    Array<MsgPart> message;
+
+    uint16 baseType16 = 1; // 0 for TTL events, 1 for spikes
+    message.add({ "type", { &baseType16, sizeof(baseType16) } });
+
+    auto channel = spike->getChannelInfo();
+
+    if (outputFormat == RAW_BINARY)
+    {
+        size_t size = SPIKE_BASE_SIZE
+            + channel->getDataSize()
+            + channel->getTotalEventMetadataSize()
+            + channel->getNumChannels() * sizeof(float);
+
+        HeapBlock<char> buffer(size);
+
+        spike->serialize(buffer, size);
+
+        message.add({ "data", { buffer, size } });
+    }
+    else // deserialize the data and create a JSON string
+    {
+        DynamicObject::Ptr jsonObj = new DynamicObject();
+
+        // Add common info to JSON
+        jsonObj->setProperty("event_type", "spike");
+        jsonObj->setProperty("stream", channel->getStreamName());
+        jsonObj->setProperty("source_node", channel->getNodeId());
+        jsonObj->setProperty("electrode", channel->getName());
+        jsonObj->setProperty("num_channels", (int) channel->getNumChannels());
+        jsonObj->setProperty("sample_rate", channel->getSampleRate());
+        jsonObj->setProperty("sample_number", spike->getSampleNumber());
+        jsonObj->setProperty("sorted_id", spike->getSortedId());
+
+        // get channel amplitudes
+        for (int ch = 0; ch < channel->getNumChannels(); ch++)
+        {
+            const float* data = spike->getDataPointer(ch);
+            float amp = -data[channel->getPrePeakSamples() + 1];
+            jsonObj->setProperty("amp" + String(ch + 1), amp);
+        }
+        
+        String jsonString = JSON::toString(var(jsonObj));
+        message.add({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
+
+    }
+
+    sendMessage(message);
+
+#endif
+
 }
 
 int EventBroadcaster::sendMessage(const Array<MsgPart>& parts) const
@@ -471,14 +397,14 @@ void EventBroadcaster::populateMetadata(const MetadataEventObject* channel,
 }
 
 
-void EventBroadcaster::handleEvent(const EventChannel* channelInfo, const EventPacket& event, int samplePosition)
+void EventBroadcaster::handleTTLEvent(TTLEventPtr event)
 {
-    sendEvent(channelInfo, event);
+    sendEvent(event);
 }
 
-void EventBroadcaster::handleSpike(const SpikeChannel* channelInfo, const EventPacket& event, int samplePosition)
+void EventBroadcaster::handleSpike(SpikePtr spike)
 {
-    sendEvent(channelInfo, event);
+    sendSpike(spike);
 }
 
 void EventBroadcaster::saveCustomParametersToXml(XmlElement* parentElement)

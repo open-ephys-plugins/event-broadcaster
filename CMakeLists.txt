@@ -60,11 +60,11 @@ endif()
 #Libraries and compiler options
 if(MSVC)
 	target_link_libraries(${PLUGIN_NAME} ${GUI_BIN_DIR}/open-ephys.lib)
-	target_compile_options(${PLUGIN_NAME} PRIVATE /sdl-)
+	target_compile_options(${PLUGIN_NAME} PRIVATE /sdl- /W0)
 	
 	install(TARGETS ${PLUGIN_NAME} RUNTIME DESTINATION ${GUI_BIN_DIR}/plugins  CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES})
 
-	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/windows)
+	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Resources/libs/windows)
 elseif(LINUX)
 	target_link_libraries(${PLUGIN_NAME} GL X11 Xext Xinerama asound dl freetype pthread rt)
 	set_property(TARGET ${PLUGIN_NAME} APPEND_STRING PROPERTY LINK_FLAGS
@@ -73,14 +73,14 @@ elseif(LINUX)
 	target_compile_options(${PLUGIN_NAME} PRIVATE -O3) #enable optimization for linux debug
 	
 	install(TARGETS ${PLUGIN_NAME} LIBRARY DESTINATION ${GUI_BIN_DIR}/plugins)
-	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/linux)
+	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Resources/libs/linux)
 elseif(APPLE)
 	set_target_properties(${PLUGIN_NAME} PROPERTIES BUNDLE TRUE)
 	set_property(TARGET ${PLUGIN_NAME} APPEND_STRING PROPERTY LINK_FLAGS
 	"-undefined dynamic_lookup -rpath @loader_path/../../../../shared")
 
 	install(TARGETS ${PLUGIN_NAME} DESTINATION $ENV{HOME}/Library/Application\ Support/open-ephys/plugins)
-	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/macos)
+	set(CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Resources/libs/macos)
 endif()
 
 #create filters for vs and xcode
@@ -94,11 +94,11 @@ endforeach()
 
 #on windows, copy the dlls when installing
 if (MSVC)
-	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/libs/windows/bin/${CMAKE_LIBRARY_ARCHITECTURE}/ DESTINATION ${GUI_BIN_DIR}/shared CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES})
+	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/libs/windows/bin/${CMAKE_LIBRARY_ARCHITECTURE}/ DESTINATION ${GUI_BIN_DIR}/shared CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES})
 elseif(LINUX)
-	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/libs/linux/bin/ DESTINATION ${GUI_BIN_DIR}/shared)
+	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/libs/linux/bin/ DESTINATION ${GUI_BIN_DIR}/shared)
 elseif(APPLE)
-	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/libs/macos/bin/ DESTINATION $ENV{HOME}/Library/Application\ Support/open-ephys/shared)
+	install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/libs/macos/bin/ DESTINATION $ENV{HOME}/Library/Application\ Support/open-ephys/shared)
 endif()
 
 #additional libraries, if needed

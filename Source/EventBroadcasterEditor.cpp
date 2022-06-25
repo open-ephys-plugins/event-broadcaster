@@ -21,16 +21,16 @@ EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode)
     EventBroadcaster* p = (EventBroadcaster*)getProcessor();
 
     restartConnection = new UtilityButton("Restart Connection",Font("Default", 15, Font::plain));
-    restartConnection->setBounds(10,35,150,18);
+    restartConnection->setBounds(20,32,150,22);
     restartConnection->addListener(this);
     addAndMakeVisible(restartConnection);
 
     urlLabel = new Label("Port", "Port:");
-    urlLabel->setBounds(20, 60, 140, 25);
+    urlLabel->setBounds(20, 66, 140, 20);
     addAndMakeVisible(urlLabel);
 
     portLabel = new Label("Port", String(p->getListeningPort()));
-    portLabel->setBounds(70,65,80,18);
+    portLabel->setBounds(70,66,80,20);
     portLabel->setFont(Font("Default", 15, Font::plain));
     portLabel->setColour(Label::textColourId, Colours::white);
     portLabel->setColour(Label::backgroundColourId, Colours::grey);
@@ -39,14 +39,14 @@ EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode)
     addAndMakeVisible(portLabel);
 
     formatLabel = new Label("Format", "Format:");
-    formatLabel->setBounds(5, 100, 60, 25);
+    formatLabel->setBounds(7, 97, 60, 25);
     addAndMakeVisible(formatLabel);
 
     formatBox = new ComboBox("FormatBox");
-    formatBox->setBounds(65, 100, 100, 20);
-    formatBox->addItem("Raw binary", EventBroadcaster::Format::RAW_BINARY);
-    formatBox->addItem("Header only", EventBroadcaster::Format::HEADER_ONLY);
-    formatBox->addItem("Header/JSON", EventBroadcaster::Format::HEADER_AND_JSON);
+    formatBox->setBounds(67, 100, 100, 20);
+    formatBox->addItem("JSON", EventBroadcaster::Format::JSON_STRING);
+    formatBox->addItem("Raw Binary", EventBroadcaster::Format::RAW_BINARY);
+
     formatBox->setSelectedId(p->getOutputFormat());
     formatBox->addListener(this);
     addAndMakeVisible(formatBox);
