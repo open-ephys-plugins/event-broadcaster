@@ -25,6 +25,7 @@
 #include "EventBroadcasterEditor.h"
 
 #define SPIKE_BASE_SIZE 26
+#define EVENT_BASE_SIZE 24
 
 EventBroadcaster::ZMQContext::ZMQContext()
 #ifdef ZEROMQ
@@ -268,14 +269,18 @@ void EventBroadcaster::sendEvent(TTLEventPtr event) const
 
     auto channel = event->getChannelInfo();
 
-    if (outputFormat == RAW_BINARY)
+    if (outputFormat == RAW_BINARY) // serialize the event
     {
-        const void* rawData = event->getRawDataPointer();
-        size_t rawDataSize = channel->getDataSize() + channel->getTotalEventMetadataSize();
+        size_t size = event->getChannelInfo()->getDataSize() 
+            + event->getChannelInfo()->getTotalEventMetadataSize() + EVENT_BASE_SIZE;
 
-        message.add({ "data", { rawData, rawDataSize } });
+        HeapBlock<char> buffer(size);
+
+        event->serialize(buffer, size);
+
+        message.add({ "data", { buffer, size } });
     }
-    else // deserialize the data and create a JSON string
+    else // create a JSON string
     {
         DynamicObject::Ptr jsonObj = new DynamicObject();
 
@@ -311,7 +316,7 @@ void EventBroadcaster::sendSpike(SpikePtr spike) const
 
     auto channel = spike->getChannelInfo();
 
-    if (outputFormat == RAW_BINARY)
+    if (outputFormat == RAW_BINARY) // serialize the spike
     {
         size_t size = SPIKE_BASE_SIZE
             + channel->getDataSize()
@@ -324,7 +329,7 @@ void EventBroadcaster::sendSpike(SpikePtr spike) const
 
         message.add({ "data", { buffer, size } });
     }
-    else // deserialize the data and create a JSON string
+    else // create a JSON string
     {
         DynamicObject::Ptr jsonObj = new DynamicObject();
 
