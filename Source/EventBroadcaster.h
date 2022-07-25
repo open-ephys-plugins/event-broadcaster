@@ -27,12 +27,7 @@
 #include <ProcessorHeaders.h>
 
 #ifdef ZEROMQ
-    #ifdef WIN32
         #include <zmq.h>
-        #include <zmq_utils.h>
-    #else
-        #include <zmq.h>
-    #endif
 #endif
 
 class EventBroadcaster : public GenericProcessor
