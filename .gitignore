@@ -1,4 +1,5 @@
 # Files and folders to ignore
+.vscode
 
 # 1. intermediate files
 *.o
@@ -10,4 +11,3 @@
 **/Build/*
 !**/Build/CMakeLists.txt
 !**/Build/CMAKE_README.txt
-
