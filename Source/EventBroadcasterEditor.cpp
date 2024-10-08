@@ -33,7 +33,7 @@ EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode)
 
     EventBroadcaster* p = (EventBroadcaster*)getProcessor();
 
-    restartConnection = new UtilityButton("Restart Connection",Font("Default", 15, Font::plain));
+    restartConnection = new UtilityButton("Restart Connection");
     restartConnection->setBounds(20,32,150,22);
     restartConnection->addListener(this);
     addAndMakeVisible(restartConnection);
