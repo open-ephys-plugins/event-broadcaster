@@ -135,13 +135,35 @@ String EventBroadcaster::getEndpoint(int port)
 
 EventBroadcaster::EventBroadcaster()
     : GenericProcessor  ("Event Broadcaster")
-    , listeningPort     (0)
+    , listeningPort     (5557)
     , outputFormat      (JSON_STRING)
 {
-    // set port to 5557; search for an available one if necessary; and do it asynchronously.
-    setListeningPort(5557, false, true, false);
+    setOutputFormat(JSON_STRING);
+    setListeningPort(listeningPort, true, false, false);
 }
 
+void EventBroadcaster::registerParameters() 
+{
+    addIntParameter(Parameter::PROCESSOR_SCOPE, "data_port", "Port", "Port number to send data", 5557, 1000, 65535, true);
+    addCategoricalParameter(Parameter::PROCESSOR_SCOPE, "output_format", "Format", "Format of the output data", {"JSON", "Raw Binary"}, 0);
+}
+
+void EventBroadcaster::parameterValueChanged(Parameter* parameter)
+{
+    if (parameter->getName().equalsIgnoreCase("data_port"))
+    {
+        int newDataPort = static_cast<IntParameter*>(parameter)->getIntValue();
+        setListeningPort(newDataPort, true, false, false);
+    }
+    else if (parameter->getName().equalsIgnoreCase("output_format"))
+    {
+        int selectedIdx = ((CategoricalParameter*) parameter)->getSelectedIndex();
+        if (selectedIdx == 0) 
+            setOutputFormat(Format::JSON_STRING);
+        else
+            setOutputFormat(Format::RAW_BINARY);
+    }
+}
 
 AudioProcessorEditor* EventBroadcaster::createEditor()
 {
@@ -175,7 +197,6 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
     }
 
     int status = 0;
-    //int currPort = getListeningPort();
     if ((listeningPort != port) || forceRestart)
     {
 #ifdef ZEROMQ
@@ -230,13 +251,6 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
             zmqSocket->bind(listeningPort);
         }
 #endif
-    }
-
-    // update editor
-    auto editor = static_cast<EventBroadcasterEditor*>(getEditor());
-    if (editor != nullptr)
-    {
-        editor->setDisplayedPort(getListeningPort());
     }
     return status;
 }
@@ -410,35 +424,6 @@ void EventBroadcaster::handleTTLEvent(TTLEventPtr event)
 void EventBroadcaster::handleSpike(SpikePtr spike)
 {
     sendSpike(spike);
-}
-
-void EventBroadcaster::saveCustomParametersToXml(XmlElement* parentElement)
-{
-    XmlElement* mainNode = parentElement->createNewChildElement("EVENTBROADCASTER");
-    mainNode->setAttribute("port", listeningPort);
-    mainNode->setAttribute("format", (int) outputFormat);
-}
-
-
-void EventBroadcaster::loadCustomParametersFromXml(XmlElement* parametersXml)
-{
-
-    forEachXmlChildElement(*parametersXml, mainNode)
-    {
-        if (mainNode->hasTagName("EVENTBROADCASTER"))
-        {
-            // overrides an existing async call to setListeningPort, if any
-            setListeningPort(mainNode->getIntAttribute("port", listeningPort), false, false, false);
-
-            outputFormat = (Format) mainNode->getIntAttribute("format", outputFormat);
-            auto ed = static_cast<EventBroadcasterEditor*>(getEditor());
-            if (ed)
-            {
-                ed->setDisplayedFormat(outputFormat);
-            }
-        }
-    }
- 
 }
 
 template <typename T>

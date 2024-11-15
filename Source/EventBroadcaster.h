@@ -46,6 +46,12 @@ public:
     /** Create custom editor*/
     AudioProcessorEditor* createEditor() override;
 
+    /** Register parameters */
+    void registerParameters() override;
+
+    /** Called when a parameter value is changed */
+    void parameterValueChanged(Parameter* parameter) override;
+
     /** Returns the current listening port number */
     int getListeningPort() const;
     
@@ -66,12 +72,6 @@ public:
 
     /** Called whenever a new spike is received */
     void handleSpike(SpikePtr spike) override;
-
-    /** Saves parameters*/
-    void saveCustomParametersToXml(XmlElement* parentElement) override;
-
-    /** Loads parameters*/
-    void loadCustomParametersFromXml(XmlElement* parameters) override;
 
 private:
     struct MsgPart

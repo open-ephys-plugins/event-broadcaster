@@ -34,38 +34,13 @@ EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode)
     EventBroadcaster* p = (EventBroadcaster*)getProcessor();
 
     restartConnection = new UtilityButton("Restart Connection");
-    restartConnection->setBounds(20,32,150,22);
+    restartConnection->setBounds(20,34,150,22);
     restartConnection->addListener(this);
     addAndMakeVisible(restartConnection);
 
-    urlLabel = new Label("Port", "Port:");
-    urlLabel->setBounds(20, 66, 140, 20);
-    addAndMakeVisible(urlLabel);
-
-    portLabel = new Label("Port", String(p->getListeningPort()));
-    portLabel->setBounds(70,66,80,20);
-    portLabel->setFont(Font("Default", 15, Font::plain));
-    portLabel->setColour(Label::textColourId, Colours::white);
-    portLabel->setColour(Label::backgroundColourId, Colours::grey);
-    portLabel->setEditable(true);
-    portLabel->addListener(this);
-    addAndMakeVisible(portLabel);
-
-    formatLabel = new Label("Format", "Format:");
-    formatLabel->setBounds(7, 97, 60, 25);
-    addAndMakeVisible(formatLabel);
-
-    formatBox = new ComboBox("FormatBox");
-    formatBox->setBounds(67, 100, 100, 20);
-    formatBox->addItem("JSON", EventBroadcaster::Format::JSON_STRING);
-    formatBox->addItem("Raw Binary", EventBroadcaster::Format::RAW_BINARY);
-
-    formatBox->setSelectedId(p->getOutputFormat());
-    formatBox->addListener(this);
-    addAndMakeVisible(formatBox);
-
+    addTextBoxParameterEditor(Parameter::PROCESSOR_SCOPE, "data_port", 20, 68);
+    addComboBoxParameterEditor(Parameter::PROCESSOR_SCOPE, "output_format", 20, 99);
 }
-
 
 void EventBroadcasterEditor::buttonClicked(Button* button)
 {
@@ -81,45 +56,4 @@ void EventBroadcasterEditor::buttonClicked(Button* button)
         }
 #endif
     }
-}
-
-
-void EventBroadcasterEditor::labelTextChanged(juce::Label* label)
-{
-    if (label == portLabel)
-    {
-        Value val = label->getTextValue();
-
-        EventBroadcaster* p = (EventBroadcaster*)getProcessor();
-        int status = p->setListeningPort(val.getValue());
-
-#ifdef ZEROMQ
-        if (status != 0)
-        {
-            CoreServices::sendStatusMessage(String("Port change failed: ") + zmq_strerror(status));
-        }
-#endif
-    }
-}
-
-
-void EventBroadcasterEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
-{
-    if (comboBoxThatHasChanged == formatBox)
-    {
-        auto p = static_cast<EventBroadcaster*>(getProcessor());
-        p->setOutputFormat((EventBroadcaster::Format) comboBoxThatHasChanged->getSelectedId());
-    }
-}
-
-
-void EventBroadcasterEditor::setDisplayedPort(int port)
-{
-    portLabel->setText(String(port), dontSendNotification);
-}
-
-
-void EventBroadcasterEditor::setDisplayedFormat(EventBroadcaster::Format format)
-{
-    formatBox->setSelectedId((int) format, dontSendNotification);
 }
