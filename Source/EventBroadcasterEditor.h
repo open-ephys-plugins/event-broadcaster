@@ -36,27 +36,24 @@
 
  */
 
-class EventBroadcasterEditor 
-    : public GenericEditor
-    , public Button::Listener
+class EventBroadcasterEditor
+    : public GenericEditor,
+      public Button::Listener
 {
 public:
-
     /** Constructor*/
-    EventBroadcasterEditor(GenericProcessor* parentNode);
+    EventBroadcasterEditor (GenericProcessor* parentNode);
 
     /** Destructor */
-    ~EventBroadcasterEditor() { }
+    ~EventBroadcasterEditor() {}
 
     /** Respond to button clicks*/
-    void buttonClicked(Button* button) override;
+    void buttonClicked (Button* button) override;
 
 private:
     ScopedPointer<UtilityButton> restartConnection;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EventBroadcasterEditor);
-
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EventBroadcasterEditor);
 };
 
-
-#endif  // EVENTBROADCASTEREDITOR_H_INCLUDED
+#endif // EVENTBROADCASTEREDITOR_H_INCLUDED

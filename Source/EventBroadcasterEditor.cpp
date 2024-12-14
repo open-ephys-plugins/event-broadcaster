@@ -24,35 +24,34 @@
 #include "EventBroadcasterEditor.h"
 #include "EventBroadcaster.h"
 
-
-EventBroadcasterEditor::EventBroadcasterEditor(GenericProcessor* parentNode)
-    : GenericEditor(parentNode)
+EventBroadcasterEditor::EventBroadcasterEditor (GenericProcessor* parentNode)
+    : GenericEditor (parentNode)
 
 {
     desiredWidth = 180;
 
-    EventBroadcaster* p = (EventBroadcaster*)getProcessor();
+    EventBroadcaster* p = (EventBroadcaster*) getProcessor();
 
-    restartConnection = new UtilityButton("Restart Connection");
-    restartConnection->setBounds(20,34,150,22);
-    restartConnection->addListener(this);
-    addAndMakeVisible(restartConnection);
+    restartConnection = new UtilityButton ("Restart Connection");
+    restartConnection->setBounds (20, 34, 150, 22);
+    restartConnection->addListener (this);
+    addAndMakeVisible (restartConnection);
 
-    addTextBoxParameterEditor(Parameter::PROCESSOR_SCOPE, "data_port", 20, 68);
-    addComboBoxParameterEditor(Parameter::PROCESSOR_SCOPE, "output_format", 20, 99);
+    addTextBoxParameterEditor (Parameter::PROCESSOR_SCOPE, "data_port", 20, 68);
+    addComboBoxParameterEditor (Parameter::PROCESSOR_SCOPE, "output_format", 20, 99);
 }
 
-void EventBroadcasterEditor::buttonClicked(Button* button)
+void EventBroadcasterEditor::buttonClicked (Button* button)
 {
     if (button == restartConnection)
     {
-        EventBroadcaster* p = (EventBroadcaster*)getProcessor();
-        int status = p->setListeningPort(p->getListeningPort(), true);
+        EventBroadcaster* p = (EventBroadcaster*) getProcessor();
+        int status = p->setListeningPort (p->getListeningPort(), true);
 
 #ifdef ZEROMQ
         if (status != 0)
         {
-            CoreServices::sendStatusMessage(String("Restart failed: ") + zmq_strerror(status));
+            CoreServices::sendStatusMessage (String ("Restart failed: ") + zmq_strerror (status));
         }
 #endif
     }

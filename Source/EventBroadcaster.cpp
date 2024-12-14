@@ -29,26 +29,27 @@
 
 EventBroadcaster::ZMQContext::ZMQContext()
 #ifdef ZEROMQ
-    : context(zmq_ctx_new())
+    : context (zmq_ctx_new())
 #else
-    : context(nullptr)
+    : context (nullptr)
 #endif
-{}
+{
+}
 
 // ZMQContext is a ReferenceCountedObject with a pointer in each instance's
 // socket pointer, so this only happens when the last instance is destroyed.
 EventBroadcaster::ZMQContext::~ZMQContext()
 {
 #ifdef ZEROMQ
-    zmq_ctx_destroy(context);
+    zmq_ctx_destroy (context);
 #endif
 }
 
 void* EventBroadcaster::ZMQContext::createZMQSocket()
 {
 #ifdef ZEROMQ
-    jassert(context != nullptr);
-    return zmq_socket(context, ZMQ_PUB);
+    jassert (context != nullptr);
+    return zmq_socket (context, ZMQ_PUB);
 #else
     jassertfalse; // should never be called in this case
     return nullptr;
@@ -56,8 +57,7 @@ void* EventBroadcaster::ZMQContext::createZMQSocket()
 }
 
 EventBroadcaster::ZMQSocket::ZMQSocket()
-    : socket    (nullptr)
-    , boundPort (0)
+    : socket (nullptr), boundPort (0)
 {
 #ifdef ZEROMQ
     socket = context->createZMQSocket();
@@ -68,7 +68,7 @@ EventBroadcaster::ZMQSocket::~ZMQSocket()
 {
 #ifdef ZEROMQ
     unbind(); // do this explicitly to free the port immediately
-    zmq_close(socket);
+    zmq_close (socket);
 #endif
 }
 
@@ -82,15 +82,15 @@ int EventBroadcaster::ZMQSocket::getBoundPort() const
     return boundPort;
 }
 
-int EventBroadcaster::ZMQSocket::send(const void* buf, size_t len, int flags)
+int EventBroadcaster::ZMQSocket::send (const void* buf, size_t len, int flags)
 {
 #ifdef ZEROMQ
-    return zmq_send(socket, buf, len, flags);
+    return zmq_send (socket, buf, len, flags);
 #endif
     return 0;
 }
 
-int EventBroadcaster::ZMQSocket::bind(int port)
+int EventBroadcaster::ZMQSocket::bind (int port)
 {
 #ifdef ZEROMQ
     if (isValid() && port != 0)
@@ -98,7 +98,7 @@ int EventBroadcaster::ZMQSocket::bind(int port)
         int status = unbind();
         if (status == 0)
         {
-            status = zmq_bind(socket, getEndpoint(port).toRawUTF8());
+            status = zmq_bind (socket, getEndpoint (port).toRawUTF8());
             if (status == 0)
             {
                 boundPort = port;
@@ -115,7 +115,7 @@ int EventBroadcaster::ZMQSocket::unbind()
 #ifdef ZEROMQ
     if (isValid() && boundPort != 0)
     {
-        int status = zmq_unbind(socket, getEndpoint(boundPort).toRawUTF8());
+        int status = zmq_unbind (socket, getEndpoint (boundPort).toRawUTF8());
         if (status == 0)
         {
             boundPort = 0;
@@ -126,51 +126,46 @@ int EventBroadcaster::ZMQSocket::unbind()
     return 0;
 }
 
-
-String EventBroadcaster::getEndpoint(int port)
+String EventBroadcaster::getEndpoint (int port)
 {
-    return String("tcp://*:") + String(port);
+    return String ("tcp://*:") + String (port);
 }
-
 
 EventBroadcaster::EventBroadcaster()
-    : GenericProcessor  ("Event Broadcaster")
-    , listeningPort     (5557)
-    , outputFormat      (JSON_STRING)
+    : GenericProcessor ("Event Broadcaster"), listeningPort (5557), outputFormat (JSON_STRING)
 {
-    setOutputFormat(JSON_STRING);
-    setListeningPort(listeningPort, true, false, false);
+    setOutputFormat (JSON_STRING);
+    setListeningPort (listeningPort, true, false, false);
 }
 
-void EventBroadcaster::registerParameters() 
+void EventBroadcaster::registerParameters()
 {
-    addIntParameter(Parameter::PROCESSOR_SCOPE, "data_port", "Port", "Port number to send data", 5557, 1000, 65535, true);
-    addCategoricalParameter(Parameter::PROCESSOR_SCOPE, "output_format", "Format", "Format of the output data", {"JSON", "Raw Binary"}, 0);
+    addIntParameter (Parameter::PROCESSOR_SCOPE, "data_port", "Port", "Port number to send data", 5557, 1000, 65535, true);
+    addCategoricalParameter (Parameter::PROCESSOR_SCOPE, "output_format", "Format", "Format of the output data", { "JSON", "Raw Binary" }, 0);
 }
 
-void EventBroadcaster::parameterValueChanged(Parameter* parameter)
+void EventBroadcaster::parameterValueChanged (Parameter* parameter)
 {
-    if (parameter->getName().equalsIgnoreCase("data_port"))
+    if (parameter->getName().equalsIgnoreCase ("data_port"))
     {
-        int newDataPort = static_cast<IntParameter*>(parameter)->getIntValue();
-        setListeningPort(newDataPort, true, false, false);
+        int newDataPort = static_cast<IntParameter*> (parameter)->getIntValue();
+        setListeningPort (newDataPort, true, false, false);
     }
-    else if (parameter->getName().equalsIgnoreCase("output_format"))
+    else if (parameter->getName().equalsIgnoreCase ("output_format"))
     {
         int selectedIdx = ((CategoricalParameter*) parameter)->getSelectedIndex();
-        if (selectedIdx == 0) 
-            setOutputFormat(Format::JSON_STRING);
+        if (selectedIdx == 0)
+            setOutputFormat (Format::JSON_STRING);
         else
-            setOutputFormat(Format::RAW_BINARY);
+            setOutputFormat (Format::RAW_BINARY);
     }
 }
 
 AudioProcessorEditor* EventBroadcaster::createEditor()
 {
-    editor = std::make_unique<EventBroadcasterEditor>(this);
+    editor = std::make_unique<EventBroadcasterEditor> (this);
     return editor.get();
 }
-
 
 int EventBroadcaster::getListeningPort() const
 {
@@ -181,10 +176,9 @@ int EventBroadcaster::getListeningPort() const
     return zmqSocket->getBoundPort();
 }
 
-
-int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchForPort, bool synchronous)
+int EventBroadcaster::setListeningPort (int port, bool forceRestart, bool searchForPort, bool synchronous)
 {
-    if (!synchronous)
+    if (! synchronous)
     {
         const MessageManagerLock mmLock; // since the callback happens in the message thread
 
@@ -208,16 +202,16 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
 
         ScopedPointer<ZMQSocket> newSocket = new ZMQSocket();
 
-        if (!newSocket->isValid())
+        if (! newSocket->isValid())
         {
             status = zmq_errno();
-            std::cout << "Failed to create socket: " << zmq_strerror(status) << std::endl;
+            std::cout << "Failed to create socket: " << zmq_strerror (status) << std::endl;
         }
         else
         {
             if (searchForPort) // look for an unused port
             {
-                while (0 != newSocket->bind(port) && zmq_errno() == EADDRINUSE)
+                while (0 != newSocket->bind (port) && zmq_errno() == EADDRINUSE)
                 {
                     ++port;
                 }
@@ -226,7 +220,7 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
                     status = zmq_errno();
                 }
             }
-            else if (0 != newSocket->bind(port))
+            else if (0 != newSocket->bind (port))
             {
                 status = zmq_errno();
             }
@@ -234,7 +228,7 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
             if (status != 0)
             {
                 std::cout << "Failed to bind to port " << port << ": "
-                    << zmq_strerror(status) << std::endl;
+                          << zmq_strerror (status) << std::endl;
             }
             else
             {
@@ -244,11 +238,10 @@ int EventBroadcaster::setListeningPort(int port, bool forceRestart, bool searchF
             }
         }
 
-
         if (status != 0 && zmqSocket != nullptr)
         {
             // try to rebind current socket to previous port
-            zmqSocket->bind(listeningPort);
+            zmqSocket->bind (listeningPort);
         }
 #endif
     }
@@ -260,133 +253,127 @@ EventBroadcaster::Format EventBroadcaster::getOutputFormat() const
     return outputFormat;
 }
 
-
-void EventBroadcaster::setOutputFormat(Format format)
+void EventBroadcaster::setOutputFormat (Format format)
 {
     outputFormat = format;
 }
 
-
-void EventBroadcaster::process(AudioSampleBuffer& continuousBuffer)
+void EventBroadcaster::process (AudioSampleBuffer& continuousBuffer)
 {
-    checkForEvents(true);
+    checkForEvents (true);
 }
 
-void EventBroadcaster::sendEvent(TTLEventPtr event) const
+void EventBroadcaster::sendEvent (TTLEventPtr event) const
 {
 #ifdef ZEROMQ
 
     Array<MsgPart> message;
 
     uint16 baseType16 = 0; // 0 for TTL events, 1 for spikes
-    message.add({ "type", { &baseType16, sizeof(baseType16) } });
+    message.add ({ "type", { &baseType16, sizeof (baseType16) } });
 
     auto channel = event->getChannelInfo();
 
     if (outputFormat == RAW_BINARY) // serialize the event
     {
-        size_t size = event->getChannelInfo()->getDataSize() 
-            + event->getChannelInfo()->getTotalEventMetadataSize() + EVENT_BASE_SIZE;
+        size_t size = event->getChannelInfo()->getDataSize()
+                      + event->getChannelInfo()->getTotalEventMetadataSize() + EVENT_BASE_SIZE;
 
-        HeapBlock<char> buffer(size);
+        HeapBlock<char> buffer (size);
 
-        event->serialize(buffer, size);
+        event->serialize (buffer, size);
 
-        message.add({ "data", { buffer, size } });
+        message.add ({ "data", { buffer, size } });
     }
     else // create a JSON string
     {
         DynamicObject::Ptr jsonObj = new DynamicObject();
 
         // Add common info to JSON
-        jsonObj->setProperty("event_type", "ttl");
-        jsonObj->setProperty("stream", channel->getStreamName());
-        jsonObj->setProperty("source_node", channel->getNodeId());
-        jsonObj->setProperty("sample_rate", channel->getSampleRate());
-        jsonObj->setProperty("channel_name", channel->getName());
-        jsonObj->setProperty("sample_number", event->getSampleNumber());
-        jsonObj->setProperty("line", event->getLine());
-        jsonObj->setProperty("state", event->getState());
+        jsonObj->setProperty ("event_type", "ttl");
+        jsonObj->setProperty ("stream", channel->getStreamName());
+        jsonObj->setProperty ("source_node", channel->getNodeId());
+        jsonObj->setProperty ("sample_rate", channel->getSampleRate());
+        jsonObj->setProperty ("channel_name", channel->getName());
+        jsonObj->setProperty ("sample_number", event->getSampleNumber());
+        jsonObj->setProperty ("line", event->getLine());
+        jsonObj->setProperty ("state", event->getState());
 
-        String jsonString = JSON::toString(var(jsonObj));
-        message.add({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
-
+        String jsonString = JSON::toString (var (jsonObj));
+        message.add ({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
     }
 
-    sendMessage(message);
+    sendMessage (message);
 
 #endif
-
 }
 
-void EventBroadcaster::sendSpike(SpikePtr spike) const
+void EventBroadcaster::sendSpike (SpikePtr spike) const
 {
 #ifdef ZEROMQ
 
     Array<MsgPart> message;
 
     uint16 baseType16 = 1; // 0 for TTL events, 1 for spikes
-    message.add({ "type", { &baseType16, sizeof(baseType16) } });
+    message.add ({ "type", { &baseType16, sizeof (baseType16) } });
 
     auto channel = spike->getChannelInfo();
 
     if (outputFormat == RAW_BINARY) // serialize the spike
     {
         size_t size = SPIKE_BASE_SIZE
-            + channel->getDataSize()
-            + channel->getTotalEventMetadataSize()
-            + channel->getNumChannels() * sizeof(float);
+                      + channel->getDataSize()
+                      + channel->getTotalEventMetadataSize()
+                      + channel->getNumChannels() * sizeof (float);
 
-        HeapBlock<char> buffer(size);
+        HeapBlock<char> buffer (size);
 
-        spike->serialize(buffer, size);
+        spike->serialize (buffer, size);
 
-        message.add({ "data", { buffer, size } });
+        message.add ({ "data", { buffer, size } });
     }
     else // create a JSON string
     {
         DynamicObject::Ptr jsonObj = new DynamicObject();
 
         // Add common info to JSON
-        jsonObj->setProperty("event_type", "spike");
-        jsonObj->setProperty("stream", channel->getStreamName());
-        jsonObj->setProperty("source_node", channel->getNodeId());
-        jsonObj->setProperty("electrode", channel->getName());
-        jsonObj->setProperty("num_channels", (int) channel->getNumChannels());
-        jsonObj->setProperty("sample_rate", channel->getSampleRate());
-        jsonObj->setProperty("sample_number", spike->getSampleNumber());
-        jsonObj->setProperty("sorted_id", spike->getSortedId());
+        jsonObj->setProperty ("event_type", "spike");
+        jsonObj->setProperty ("stream", channel->getStreamName());
+        jsonObj->setProperty ("source_node", channel->getNodeId());
+        jsonObj->setProperty ("electrode", channel->getName());
+        jsonObj->setProperty ("num_channels", (int) channel->getNumChannels());
+        jsonObj->setProperty ("sample_rate", channel->getSampleRate());
+        jsonObj->setProperty ("sample_number", spike->getSampleNumber());
+        jsonObj->setProperty ("sorted_id", spike->getSortedId());
 
         // get channel amplitudes
         for (int ch = 0; ch < channel->getNumChannels(); ch++)
         {
-            const float* data = spike->getDataPointer(ch);
+            const float* data = spike->getDataPointer (ch);
             float amp = -data[channel->getPrePeakSamples() + 1];
-            jsonObj->setProperty("amp" + String(ch + 1), amp);
+            jsonObj->setProperty ("amp" + String (ch + 1), amp);
         }
-        
-        String jsonString = JSON::toString(var(jsonObj));
-        message.add({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
 
+        String jsonString = JSON::toString (var (jsonObj));
+        message.add ({ "json", { jsonString.toRawUTF8(), jsonString.getNumBytesAsUTF8() } });
     }
 
-    sendMessage(message);
+    sendMessage (message);
 
 #endif
-
 }
 
-int EventBroadcaster::sendMessage(const Array<MsgPart>& parts) const
+int EventBroadcaster::sendMessage (const Array<MsgPart>& parts) const
 {
 #ifdef ZEROMQ
     int numParts = parts.size();
     for (int i = 0; i < numParts; ++i)
     {
-        const MsgPart& part = parts.getUnchecked(i);
+        const MsgPart& part = parts.getUnchecked (i);
         int flags = (i < numParts - 1) ? ZMQ_SNDMORE : 0;
-        if (-1 == zmqSocket->send(part.data.getData(), part.data.getSize(), flags))
+        if (-1 == zmqSocket->send (part.data.getData(), part.data.getSize(), flags))
         {
-            std::cout << "Error sending " << part.name << ": " << zmq_strerror(zmq_errno()) << std::endl;
+            std::cout << "Error sending " << part.name << ": " << zmq_strerror (zmq_errno()) << std::endl;
             return -1;
         }
     }
@@ -394,99 +381,99 @@ int EventBroadcaster::sendMessage(const Array<MsgPart>& parts) const
     return 0;
 }
 
-void EventBroadcaster::populateMetadata(const MetadataEventObject* channel,
-    const EventBasePtr event, DynamicObject::Ptr dest)
+void EventBroadcaster::populateMetadata (const MetadataEventObject* channel,
+                                         const EventBasePtr event,
+                                         DynamicObject::Ptr dest)
 {
     //Iterate through all event data and add to metadata object
     int numMetaData = event->getMetadataValueCount();
     for (int i = 0; i < numMetaData; i++)
     {
         //Get metadata name
-        const MetadataDescriptor* metaDescPtr = channel->getEventMetadataDescriptor(i);
+        const MetadataDescriptor* metaDescPtr = channel->getEventMetadataDescriptor (i);
         const String& metaDataName = metaDescPtr->getName();
 
         //Get metadata value
-        const MetadataValue* valuePtr = event->getMetadataValue(i);
+        const MetadataValue* valuePtr = event->getMetadataValue (i);
         const void* rawPtr = valuePtr->getRawValuePointer();
         unsigned int length = valuePtr->getDataLength();
 
-        auto dataReader = getDataReader(valuePtr->getDataType());
-        dest->setProperty(metaDataName, dataReader(rawPtr, length));
+        auto dataReader = getDataReader (valuePtr->getDataType());
+        dest->setProperty (metaDataName, dataReader (rawPtr, length));
     }
 }
 
-
-void EventBroadcaster::handleTTLEvent(TTLEventPtr event)
+void EventBroadcaster::handleTTLEvent (TTLEventPtr event)
 {
-    sendEvent(event);
+    sendEvent (event);
 }
 
-void EventBroadcaster::handleSpike(SpikePtr spike)
+void EventBroadcaster::handleSpike (SpikePtr spike)
 {
-    sendSpike(spike);
+    sendSpike (spike);
 }
 
 template <typename T>
-var EventBroadcaster::binaryValueToVar(const void* value, unsigned int dataLength)
+var EventBroadcaster::binaryValueToVar (const void* value, unsigned int dataLength)
 {
-    auto typedValue = reinterpret_cast<const T*>(value);
+    auto typedValue = reinterpret_cast<const T*> (value);
 
     if (dataLength == 1)
     {
-        return String(*typedValue);
+        return String (*typedValue);
     }
     else
     {
         Array<var> metaDataArray;
         for (unsigned int i = 0; i < dataLength; ++i)
         {
-            metaDataArray.add(String(typedValue[i]));
+            metaDataArray.add (String (typedValue[i]));
         }
         return metaDataArray;
     }
 }
 
-var EventBroadcaster::stringValueToVar(const void* value, unsigned int dataLength)
+var EventBroadcaster::stringValueToVar (const void* value, unsigned int dataLength)
 {
-    return String::createStringFromData(value, dataLength);
+    return String::createStringFromData (value, dataLength);
 }
 
-EventBroadcaster::DataToVarFcn EventBroadcaster::getDataReader(BaseType dataType)
+EventBroadcaster::DataToVarFcn EventBroadcaster::getDataReader (BaseType dataType)
 {
     switch (dataType)
     {
-    case BaseType::CHAR:
-        return &stringValueToVar;
+        case BaseType::CHAR:
+            return &stringValueToVar;
 
-    case BaseType::INT8:
-        return &binaryValueToVar<int8>;
+        case BaseType::INT8:
+            return &binaryValueToVar<int8>;
 
-    case BaseType::UINT8:
-        return &binaryValueToVar<uint8>;
+        case BaseType::UINT8:
+            return &binaryValueToVar<uint8>;
 
-    case BaseType::INT16:
-        return &binaryValueToVar<int16>;
+        case BaseType::INT16:
+            return &binaryValueToVar<int16>;
 
-    case BaseType::UINT16:
-        return &binaryValueToVar<uint16>;
+        case BaseType::UINT16:
+            return &binaryValueToVar<uint16>;
 
-    case BaseType::INT32:
-        return &binaryValueToVar<int32>;
+        case BaseType::INT32:
+            return &binaryValueToVar<int32>;
 
-    case BaseType::UINT32:
-        return &binaryValueToVar<uint32>;
+        case BaseType::UINT32:
+            return &binaryValueToVar<uint32>;
 
-    case BaseType::INT64:
-        return &binaryValueToVar<int64>;
+        case BaseType::INT64:
+            return &binaryValueToVar<int64>;
 
-    case BaseType::UINT64:
-        return &binaryValueToVar<uint64>;
+        case BaseType::UINT64:
+            return &binaryValueToVar<uint64>;
 
-    case BaseType::FLOAT:
-        return &binaryValueToVar<float>;
+        case BaseType::FLOAT:
+            return &binaryValueToVar<float>;
 
-    case BaseType::DOUBLE:
-        return &binaryValueToVar<double>;
+        case BaseType::DOUBLE:
+            return &binaryValueToVar<double>;
     }
     jassertfalse;
     return nullptr;
@@ -497,5 +484,5 @@ void EventBroadcaster::handleAsyncUpdate()
     // should already be in the message thread, but just in case:
     const MessageManagerLock mmlock;
 
-    setListeningPort(asyncPort, asyncForceRestart, asyncSearchForPort);
+    setListeningPort (asyncPort, asyncForceRestart, asyncSearchForPort);
 }
