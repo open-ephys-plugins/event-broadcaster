@@ -26,9 +26,7 @@
 
 #include <ProcessorHeaders.h>
 
-#ifdef ZEROMQ
-        #include <zmq.h>
-#endif
+#include <zmq.h>
 
 class EventBroadcaster : public GenericProcessor
                        , private AsyncUpdater

@@ -193,7 +193,6 @@ int EventBroadcaster::setListeningPort (int port, bool forceRestart, bool search
     int status = 0;
     if ((listeningPort != port) || forceRestart)
     {
-#ifdef ZEROMQ
         // unbind current socket (if any) to free up port
         if (zmqSocket != nullptr)
         {
@@ -205,7 +204,8 @@ int EventBroadcaster::setListeningPort (int port, bool forceRestart, bool search
         if (! newSocket->isValid())
         {
             status = zmq_errno();
-            std::cout << "Failed to create socket: " << zmq_strerror (status) << std::endl;
+            LOGE ("Failed to create socket: ", zmq_strerror (status));
+            CoreServices::sendStatusMessage ("Failed to create socket: " + String (zmq_strerror (status)));
         }
         else
         {
@@ -227,8 +227,8 @@ int EventBroadcaster::setListeningPort (int port, bool forceRestart, bool search
 
             if (status != 0)
             {
-                std::cout << "Failed to bind to port " << port << ": "
-                          << zmq_strerror (status) << std::endl;
+                LOGE ("Failed to bind to port ", port, ": ", zmq_strerror (status));
+                CoreServices::sendStatusMessage ("Failed to bind to port " + String (port) + ": " + String (zmq_strerror (status)));
             }
             else
             {
@@ -243,7 +243,6 @@ int EventBroadcaster::setListeningPort (int port, bool forceRestart, bool search
             // try to rebind current socket to previous port
             zmqSocket->bind (listeningPort);
         }
-#endif
     }
     return status;
 }
@@ -265,8 +264,6 @@ void EventBroadcaster::process (AudioSampleBuffer& continuousBuffer)
 
 void EventBroadcaster::sendEvent (TTLEventPtr event) const
 {
-#ifdef ZEROMQ
-
     Array<MsgPart> message;
 
     uint16 baseType16 = 0; // 0 for TTL events, 1 for spikes
@@ -304,14 +301,10 @@ void EventBroadcaster::sendEvent (TTLEventPtr event) const
     }
 
     sendMessage (message);
-
-#endif
 }
 
 void EventBroadcaster::sendSpike (SpikePtr spike) const
 {
-#ifdef ZEROMQ
-
     Array<MsgPart> message;
 
     uint16 baseType16 = 1; // 0 for TTL events, 1 for spikes
@@ -359,13 +352,10 @@ void EventBroadcaster::sendSpike (SpikePtr spike) const
     }
 
     sendMessage (message);
-
-#endif
 }
 
 int EventBroadcaster::sendMessage (const Array<MsgPart>& parts) const
 {
-#ifdef ZEROMQ
     int numParts = parts.size();
     for (int i = 0; i < numParts; ++i)
     {
@@ -373,11 +363,10 @@ int EventBroadcaster::sendMessage (const Array<MsgPart>& parts) const
         int flags = (i < numParts - 1) ? ZMQ_SNDMORE : 0;
         if (-1 == zmqSocket->send (part.data.getData(), part.data.getSize(), flags))
         {
-            std::cout << "Error sending " << part.name << ": " << zmq_strerror (zmq_errno()) << std::endl;
+            LOGE ("Error sending ", part.name, ": ", zmq_strerror (zmq_errno()));
             return -1;
         }
     }
-#endif
     return 0;
 }
 
